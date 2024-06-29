@@ -5,15 +5,14 @@ import Modal from './components/Modal.jsx';
 import DeleteConfirmation from './components/DeleteConfirmation.jsx';
 import logoImg from './assets/logo.png';
 import AvailablePlaces from './components/AvailablePlaces.jsx';
-import { updateUserPlace } from './http.js';
-import { fetchUserPlace } from './http.js';
+import { fetchUserPlace, updateUserPlace } from './http.js';
 import Error from './components/Error.jsx';
 
 function App() {
   const selectedPlace = useRef();
 
   const [userPlaces, setUserPlaces] = useState([]);
-  const [fetching, setFetching] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState();
 
   const [errorUpdatingPlaces, setErrorUpdatingPlaces] = useState();
@@ -21,23 +20,19 @@ function App() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchUserPlaces() {
-      setFetching(true);
-
+    async function fetchPlaces() {
+      setIsFetching(true);
       try {
-        const response = await fetchUserPlace();
-        setUserPlaces(response);
+        const places = await fetchUserPlace();
+        setUserPlaces(places);
       } catch (error) {
-        setUserPlaces(userPlaces);
-        setError({
-          message: error.message || 'Could not fetch user places',
-        });
+        setError({ message: error.message || 'Failed to fetch user places.' });
       }
 
-      setFetching(false);
+      setIsFetching(false);
     }
 
-    fetchUserPlaces();
+    fetchPlaces();
   }, []);
 
   function handleStartRemovePlace(place) {
@@ -65,44 +60,51 @@ function App() {
     } catch (error) {
       setUserPlaces(userPlaces);
       setErrorUpdatingPlaces({
-        message: error.message || 'Could not fetch places',
+        message: error.message || 'Failed to update places.',
       });
     }
   }
 
-  const handleRemovePlace = useCallback(async function handleRemovePlace() {
-    setUserPlaces((prevPickedPlaces) =>
-      prevPickedPlaces.filter((place) => place.id !== selectedPlace.current.id)
-    );
-
-    try {
-      await updateUserPlace(
-        userPlaces.filter((place) => place.id !== selectedPlace.current.id)
+  const handleRemovePlace = useCallback(
+    async function handleRemovePlace() {
+      setUserPlaces((prevPickedPlaces) =>
+        prevPickedPlaces.filter(
+          (place) => place.id !== selectedPlace.current.id
+        )
       );
-    } catch (error) {
-      setUserPlaces(userPlaces);
-      setErrorUpdatingPlaces({
-        message: error.message || 'Fail to Delete Places',
-      });
-    }
 
-    setModalIsOpen(false);
-  }, []);
+      try {
+        await updateUserPlace(
+          userPlaces.filter((place) => place.id !== selectedPlace.current.id)
+        );
+      } catch (error) {
+        setUserPlaces(userPlaces);
+        setErrorUpdatingPlaces({
+          message: error.message || 'Failed to delete place.',
+        });
+      }
+
+      setModalIsOpen(false);
+    },
+    [userPlaces]
+  );
 
   function handleError() {
     setErrorUpdatingPlaces(null);
   }
+
   return (
     <>
       <Modal open={errorUpdatingPlaces} onClose={handleError}>
         {errorUpdatingPlaces && (
           <Error
-            title="An Error Occurred!"
+            title="An error occurred!"
             message={errorUpdatingPlaces.message}
             onConfirm={handleError}
           />
         )}
       </Modal>
+
       <Modal open={modalIsOpen} onClose={handleStopRemovePlace}>
         <DeleteConfirmation
           onCancel={handleStopRemovePlace}
@@ -119,15 +121,15 @@ function App() {
         </p>
       </header>
       <main>
-        {error && <Error title="An error occured!" message={error.message} />}
+        {error && <Error title="An error occurred!" message={error.message} />}
         {!error && (
           <Places
             title="I'd like to visit ..."
             fallbackText="Select the places you would like to visit below."
+            isLoading={isFetching}
+            loadingText="Fetching your places..."
             places={userPlaces}
             onSelectPlace={handleStartRemovePlace}
-            isLoading={fetching}
-            loadingText="Fetching your places..."
           />
         )}
 
