@@ -1,40 +1,31 @@
 import Places from './Places.jsx';
-import { useEffect, useState } from 'react';
 import Error from './Error.jsx';
 import { sortPlacesByDistance } from '../loc.js';
 import { fetchAvailablePlace } from '../http.js';
+import { useFetch } from '../hooks/useFetch.js';
+
+async function fetchSortedPlaces() {
+  const places = await fetchAvailablePlace();
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition((position) => {
+      const sortedPlaces = sortPlacesByDistance(
+        places,
+        position.coords.latitude,
+        position.coords.longitude
+      );
+
+      resolve(sortedPlaces);
+    });
+  });
+}
 
 export default function AvailablePlaces({ onSelectPlace }) {
-  const [availablePlaces, setAvailablePlaces] = useState([]);
-  const [fetching, setFetching] = useState(false);
-  const [error, setError] = useState();
-
-  useEffect(() => {
-    const fetchPlaces = async () => {
-      setFetching(true);
-
-      try {
-        const places = await fetchAvailablePlace();
-
-        navigator.geolocation.getCurrentPosition((position) => {
-          const sortedPlaces = sortPlacesByDistance(
-            places,
-            position.coords.latitude,
-            position.coords.longitude
-          );
-          setAvailablePlaces(sortedPlaces);
-          setFetching(false);
-        });
-      } catch (error) {
-        setError({
-          message: error.message || 'Could not fetch places',
-        });
-        setFetching(false);
-      }
-    };
-
-    fetchPlaces();
-  }, []);
+  const {
+    isFetching,
+    fetchedData: availablePlaces,
+    error,
+  } = useFetch(fetchSortedPlaces, []);
 
   if (error) {
     return <Error title="An Error Ocurred!" message={error.message} />;
@@ -44,7 +35,7 @@ export default function AvailablePlaces({ onSelectPlace }) {
     <Places
       title="Available Places"
       places={availablePlaces}
-      isLoading={fetching}
+      isLoading={isFetching}
       loadingText="Fetching place data..."
       fallbackText="No places available."
       onSelectPlace={onSelectPlace}
